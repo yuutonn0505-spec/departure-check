@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>外出チェック</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0c0c10;
+    --surface: #13131a;
+    --border: #1f1f2a;
+    --text: #e8e4dd;
+    --muted: #4a4a5a;
+    --accent: #c8f0a0;
+    --accent-dim: #1a2e14;
+    --warn: #f0c060;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+
+  /* scan flash animation */
+  @keyframes scanFlash {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  .scan-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(200, 240, 160, 0.08);
+    pointer-events: none;
+    z-index: 100;
+    animation: scanFlash 1.2s ease-out forwards;
+  }
+
+  /* header */
+  .header {
+    padding: 32px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .header-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .header-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .tab-bar {
+    display: flex;
+    gap: 6px;
+  }
+
+  .tab {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab.active {
+    background: var(--warn);
+    color: #0c0c10;
+    border-color: var(--warn);
+    font-weight: 700;
+  }
+
+  /* main */
+  .main {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* record flash */
+  .record-banner {
+    margin: 20px 0 16px;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: scanFlash 0s; /* reset */
+    opacity: 1;
+  }
+
+  .record-banner-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .record-banner-text {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .record-banner-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* section title */
+  .section-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    margin: 24px 0 12px;
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+  }
+
+  /* checklist manual */
+  .check-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.18s;
+    margin-bottom: 8px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .check-item:active { transform: scale(0.98); }
+
+  .check-item.checked {
+    background: var(--accent-dim);
+    border-color: rgba(200,240,160,0.3);
+  }
+
+  .check-icon { font-size: 22px; flex-shrink: 0; }
+
+  .check-label {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.18s;
+  }
+
+  .check-item.checked .check-label {
+    color: var(--accent);
+    text-decoration: line-through;
+    text-decoration-color: rgba(200,240,160,0.4);
+  }
+
+  .check-circle {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.18s;
+    flex-shrink: 0;
+  }
+
+  .check-item.checked .check-circle {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0c0c10;
+  }
+
+  /* progress */
+  .progress-wrap {
+    margin: 20px 0 16px;
+  }
+
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .progress-meta span:last-child { color: var(--warn); }
+
+  .progress-bar {
+    background: var(--border);
+    border-radius: 3px;
+    height: 3px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--warn);
+    transition: width 0.3s ease;
+  }
+
+  .progress-fill.all { background: var(--accent); }
+
+  /* manual record button */
+  .btn-record {
+    width: 100%;
+    padding: 16px;
+    background: var(--warn);
+    color: #0c0c10;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .btn-record:disabled {
+    background: var(--surface);
+    color: var(--muted);
+    cursor: default;
+  }
+
+  .btn-record:not(:disabled):active { transform: scale(0.98); }
+
+  /* history */
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+
+  .history-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .history-item:first-child .history-dot {
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  .history-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .history-day {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .history-badge {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+
+  /* view toggle */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* nfc mode indicator */
+  .nfc-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(200,240,160,0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin-bottom: 4px;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<div id="scanOverlay" class="scan-overlay" style="display:none"></div>
+
+<div class="header">
+  <div>
+    <div class="header-label">Departure Check</div>
+    <div id="nfcBadge" class="nfc-badge" style="display:none">● NFC 記録済み</div>
+    <div class="header-title">外出チェック</div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showView('check')">チェック</button>
+    <button class="tab" onclick="showView('history')">履歴 <span id="histCount"></span></button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- CHECK VIEW -->
+  <div id="viewCheck" class="view active">
+    <div id="recordBanner" style="display:none" class="record-banner">
+      <div class="record-banner-dot"></div>
+      <div>
+        <div class="record-banner-text">NFC記録完了</div>
+        <div id="recordBannerTime" class="record-banner-time"></div>
+      </div>
+    </div>
+
+    <div class="section-title">手動チェック</div>
+
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span>確認済み</span>
+        <span id="progressText">0 / 5</span>
+      </div>
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div id="checkList"></div>
+
+    <button id="btnRecord" class="btn-record" disabled onclick="manualRecord()">
+      全項目確認して記録する
+    </button>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div id="viewHistory" class="view">
+    <div class="section-title">記録履歴</div>
+    <div id="historyList"></div>
+  </div>
+
+</div>
+
+<script>
+const ITEMS = [
+  { id: 'door',   icon: '🔒', label: 'ドア（鍵）' },
+  { id: 'pass1',  icon: '🪪', label: '入館証①' },
+  { id: 'pass2',  icon: '🪪', label: '入館証②' },
+  { id: 'gas',    icon: '🔥', label: 'ガス' },
+  { id: 'window', icon: '🪟', label: '窓' },
+];
+
+let checked = {};
+let history = [];
+
+// localStorage helpers
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem('dep-check-history');
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveHistory(h) {
+  try {
+    localStorage.setItem('dep-check-history', JSON.stringify(h));
+  } catch {}
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString('ja-JP', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function getDayLabel(iso) {
+  const days = ['日','月','火','水','木','金','土'];
+  const d = new Date(iso);
+  return `${days[d.getDay()]}曜日`;
+}
+
+// Render checklist
+function renderChecklist() {
+  const el = document.getElementById('checkList');
+  el.innerHTML = '';
+  ITEMS.forEach(item => {
+    const isChecked = !!checked[item.id];
+    const div = document.createElement('div');
+    div.className = 'check-item' + (isChecked ? ' checked' : '');
+    div.innerHTML = `
+      <span class="check-icon">${item.icon}</span>
+      <span class="check-label">${item.label}</span>
+      <div class="check-circle">${isChecked ? '✓' : ''}</div>
+    `;
+    div.onclick = () => toggleCheck(item.id);
+    el.appendChild(div);
+  });
+
+  const count = ITEMS.filter(i => checked[i.id]).length;
+  const all = count === ITEMS.length;
+  document.getElementById('progressText').textContent = `${count} / ${ITEMS.length}`;
+  const fill = document.getElementById('progressFill');
+  fill.style.width = `${(count / ITEMS.length) * 100}%`;
+  fill.className = 'progress-fill' + (all ? ' all' : '');
+  document.getElementById('btnRecord').disabled = !all;
+}
+
+function toggleCheck(id) {
+  checked[id] = !checked[id];
+  renderChecklist();
+}
+
+// Record
+function addRecord(type) {
+  const now = new Date().toISOString();
+  const entry = { date: now, type: type || 'manual' };
+  history.unshift(entry);
+  if (history.length > 90) history = history.slice(0, 90);
+  saveHistory(history);
+  updateHistCount();
+  return now;
+}
+
+function manualRecord() {
+  const now = addRecord('manual');
+  checked = {};
+  renderChecklist();
+  showBanner(now);
+  renderHistory();
+}
+
+function showBanner(iso) {
+  const banner = document.getElementById('recordBanner');
+  document.getElementById('recordBannerTime').textContent = formatDate(iso);
+  banner.style.display = 'flex';
+  setTimeout(() => {
+    banner.style.transition = 'opacity 0.8s';
+    banner.style.opacity = '0';
+    setTimeout(() => {
+      banner.style.display = 'none';
+      banner.style.opacity = '1';
+      banner.style.transition = '';
+    }, 800);
+  }, 3000);
+}
+
+// Render history
+function renderHistory() {
+  const el = document.getElementById('historyList');
+  if (history.length === 0) {
+    el.innerHTML = '<div class="empty">まだ記録がありません</div>';
+    return;
+  }
+  el.innerHTML = '';
+  history.forEach((entry, i) => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    const typeLabel = entry.type === 'nfc' ? 'NFC' : 'MANUAL';
+    div.innerHTML = `
+      <div class="history-dot"></div>
+      <div>
+        <div class="history-date">${formatDate(entry.date)}</div>
+        <div class="history-day">${getDayLabel(entry.date)} · ${typeLabel}</div>
+      </div>
+      <div class="history-badge">✓ OK</div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+function updateHistCount() {
+  document.getElementById('histCount').textContent = history.length > 0 ? `(${history.length})` : '';
+}
+
+// View switching
+function showView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('active');
+  event.target.classList.add('active');
+  if (v === 'history') renderHistory();
+}
+
+// NFC detection via URL parameter
+function checkNFCParam() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('record') || params.has('nfc')) {
+    // Show flash overlay
+    const overlay = document.getElementById('scanOverlay');
+    overlay.style.display = 'block';
+    setTimeout(() => overlay.style.display = 'none', 1200);
+
+    // Auto record
+    const now = addRecord('nfc');
+    renderHistory();
+
+    // Show NFC badge
+    document.getElementById('nfcBadge').style.display = 'inline-block';
+    showBanner(now);
+
+    // Clean URL
+    const url = new URL(window.location);
+    url.searchParams.delete('record');
+    url.searchParams.delete('nfc');
+    window.history.replaceState({}, '', url);
+  }
+}
+
+// Init
+history = loadHistory();
+renderChecklist();
+updateHistCount();
+checkNFCParam();
+</script>
+</body>
+</html>
